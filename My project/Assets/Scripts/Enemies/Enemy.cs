@@ -8,24 +8,32 @@ public class Enemy : MonoBehaviour
     private float currentHealth;
 
     [Header("Recompensa / Efeitos")]
+    [Tooltip("Quantidade de moedas que este inimigo concede ao morrer.")]
     [SerializeField] private int goldReward = 10;
     [SerializeField] private GameObject deathEffect;
 
     public static event Action<Enemy> OnEnemyDied;
+    public event Action<float, float> OnHealthChanged; // (currentHealth, maxHealth)
 
     public float CurrentHealth => currentHealth;
     public float MaxHealth => maxHealth;
     public int GoldReward => goldReward;
+    public bool IsDead => currentHealth <= 0;
 
     private void Start()
     {
         currentHealth = maxHealth;
+        OnHealthChanged?.Invoke(currentHealth, maxHealth);
     }
 
     public void TakeDamage(float damage)
     {
+        if (IsDead) return;
+
         currentHealth -= damage;
         currentHealth = Mathf.Max(0, currentHealth);
+
+        OnHealthChanged?.Invoke(currentHealth, maxHealth);
 
         if (currentHealth <= 0)
         {
@@ -35,6 +43,12 @@ public class Enemy : MonoBehaviour
 
     private void Die()
     {
+        // Concede moedas ao jogador
+        if (CoinManager.Instance != null && goldReward > 0)
+        {
+            CoinManager.Instance.AddCoins(goldReward);
+        }
+
         OnEnemyDied?.Invoke(this);
 
         if (deathEffect != null)

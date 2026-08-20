@@ -2,23 +2,42 @@ using UnityEngine;
 
 public class EnemyMovement : MonoBehaviour
 {
-    [Header("Movimentação")]
-    [SerializeField] private float speed = 3f;
-    [SerializeField] private bool rotateTowardsTarget = true;
-    [SerializeField] private float rotationOffset = 0f; // Ajuste de rotação para alinhar com o sprite
+    public enum MovementMode
+    {
+        DirectToTower,   // Corre em linha reta até a Torre/Base
+        FollowWaypoints  // Segue os pontos do caminho
+    }
 
-    [Header("Destino")]
-    [Tooltip("Deixe vazio se estiver usando o sistema de Waypoints.")]
-    [SerializeField] private Transform directTarget;
-    [SerializeField] private int damageToBase = 1;
+    [Header("Tipo de Movimentação")]
+    [SerializeField] private MovementMode movementMode = MovementMode.DirectToTower;
+    [SerializeField] private float speed = 3.5f;
+    [SerializeField] private bool rotateTowardsTarget = true;
+    [SerializeField] private float rotationOffset = 0f;
+
+    [Header("Alvo Principal")]
+    [Tooltip("Se vazio, busca automaticamente a Torre ou Base na cena.")]
+    [SerializeField] private Transform targetTower;
+    [SerializeField] private int damageToTower = 5;
+
+    [Header("Detecção de Obstáculos (Barreiras e Tropas)")]
+    [SerializeField] private float obstacleCheckDistance = 0.5f;
+    [SerializeField] private LayerMask obstacleLayer;
 
     private Transform[] waypoints;
     private int currentWaypointIndex = 0;
+    private bool isBlockedByObstacle = false;
+
+    public float Speed => speed;
+    public bool IsBlocked => isBlockedByObstacle;
 
     private void Start()
     {
-        // Se houver um WaypointPath na cena e nenhum alvo direto foi definido
-        if (directTarget == null && WaypointPath.Instance != null)
+        // Encontra a Torre ou Base automaticamente se estiver no modo direto
+        if (movementMode == MovementMode.DirectToTower && targetTower == null)
+        {
+            FindTargetTower();
+        }
+        else if (movementMode == MovementMode.FollowWaypoints && WaypointPath.Instance != null)
         {
             waypoints = WaypointPath.Instance.GetWaypoints();
         }
@@ -26,32 +45,61 @@ public class EnemyMovement : MonoBehaviour
 
     private void Update()
     {
-        if (waypoints != null && waypoints.Length > 0)
+        if (isBlockedByObstacle) return;
+
+        if (movementMode == MovementMode.DirectToTower)
+        {
+            if (targetTower == null)
+            {
+                FindTargetTower();
+                return;
+            }
+
+            MoveTowards(targetTower.position, OnReachTargetTower);
+        }
+        else if (movementMode == MovementMode.FollowWaypoints)
         {
             MoveAlongWaypoints();
         }
-        else if (directTarget != null)
+    }
+
+    public void SetBlocked(bool blocked)
+    {
+        isBlockedByObstacle = blocked;
+    }
+
+    private void FindTargetTower()
+    {
+        // 1. Tenta achar objeto com script Tower
+        Tower tower = FindObjectOfType<Tower>();
+        if (tower != null)
         {
-            MoveTowards(directTarget.position, OnReachDestination);
+            targetTower = tower.transform;
+            return;
         }
-    }
 
-    public void SetPath(Transform[] customWaypoints)
-    {
-        waypoints = customWaypoints;
-        currentWaypointIndex = 0;
-    }
+        // 2. Tenta achar PlayerBase
+        if (PlayerBase.Instance != null)
+        {
+            targetTower = PlayerBase.Instance.transform;
+            return;
+        }
 
-    public void SetDirectTarget(Transform target)
-    {
-        directTarget = target;
+        // 3. Fallback por tags
+        GameObject towerObj = GameObject.FindWithTag("Tower");
+        if (towerObj != null)
+        {
+            targetTower = towerObj.transform;
+        }
     }
 
     private void MoveAlongWaypoints()
     {
+        if (waypoints == null || waypoints.Length == 0) return;
+
         if (currentWaypointIndex >= waypoints.Length)
         {
-            OnReachDestination();
+            OnReachTargetTower();
             return;
         }
 
@@ -67,7 +115,7 @@ public class EnemyMovement : MonoBehaviour
             currentWaypointIndex++;
             if (currentWaypointIndex >= waypoints.Length)
             {
-                OnReachDestination();
+                OnReachTargetTower();
             }
         });
     }
@@ -83,18 +131,18 @@ public class EnemyMovement : MonoBehaviour
             transform.rotation = Quaternion.Euler(0, 0, angle + rotationOffset);
         }
 
-        if (Vector2.Distance(transform.position, destination) <= 0.1f)
+        if (Vector2.Distance(transform.position, destination) <= 0.2f)
         {
             onReach?.Invoke();
         }
     }
 
-    private void OnReachDestination()
+    private void OnReachTargetTower()
     {
-        // Aplica dano à base do jogador se o PlayerBase existir na cena
+        // Causa dano à base/torre
         if (PlayerBase.Instance != null)
         {
-            PlayerBase.Instance.TakeDamage(damageToBase);
+            PlayerBase.Instance.TakeDamage(damageToTower);
         }
 
         Destroy(gameObject);
