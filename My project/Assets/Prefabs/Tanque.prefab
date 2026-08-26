@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 6665527152784217096}
   - component: {fileID: 7835025734664352300}
   - component: {fileID: 126937683861500354}
+  - component: {fileID: 4205547912240855944}
   m_Layer: 6
   m_Name: Tanque
   m_TagString: Enemy
@@ -50,7 +51,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Enemy
   maxHealth: 250
   goldReward: 35
-  deathEffect: {fileID: 0}
+  deathEffect: {fileID: 6196290745241899542, guid: 79d3771e68cb07b43aeab819a844f595, type: 3}
 --- !u!114 &5435755998143128081
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -72,7 +73,7 @@ MonoBehaviour:
   obstacleCheckDistance: 0.5
   obstacleLayer:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 256
 --- !u!212 &6665527152784217096
 SpriteRenderer:
   serializedVersion: 2
@@ -198,3 +199,20 @@ MonoBehaviour:
     m_Bits: 256
   guardTag: Guard
   barricadeTag: Barricade
+--- !u!114 &4205547912240855944
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3123253203267725060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fc68378800580784d95a5057f183397b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FloatingHealthBar
+  offset: {x: 0, y: 0.7, z: 0}
+  barSize: {x: 0.8, y: 0.12}
+  backgroundColor: {r: 0.15, g: 0.15, b: 0.15, a: 0.85}
+  fillColor: {r: 0.2, g: 0.9, b: 0.2, a: 1}
+  lowHealthColor: {r: 0.9, g: 0.2, b: 0.2, a: 1}

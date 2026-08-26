@@ -1,183 +1,114 @@
+using System.Collections;
 using UnityEngine;
 
 public class EnemyAttack : MonoBehaviour
 {
     [Header("Ataque do Inimigo")]
-    [SerializeField] private float damage = 12f;
-    [SerializeField] private float attackRange = 0.8f;
+    [SerializeField] private float damage = 5f;
     [SerializeField] private float attackRate = 1f; // Golpes por segundo
+    [SerializeField] private float attackRange = 1.0f;
 
-    [Header("Detecção de Obstáculos (Barreiras / Guardas)")]
-    [SerializeField] private LayerMask obstacleLayer;
-    [SerializeField] private string guardTag = "Guard";
+    [Header("Alvos")]
     [SerializeField] private string barricadeTag = "Barricade";
 
     private float attackCountdown = 0f;
     private EnemyMovement enemyMovement;
-    private Transform currentObstacleTarget;
+    private Transform currentBarricadeTarget;
+    private SpriteRenderer spriteRenderer;
 
-    public bool IsAttacking => currentObstacleTarget != null;
+    public bool IsAttacking => enemyMovement != null && (enemyMovement.HasReachedTower || currentBarricadeTarget != null);
 
     private void Awake()
     {
         enemyMovement = GetComponent<EnemyMovement>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
     }
 
     private void Start()
     {
-        InvokeRepeating(nameof(CheckForObstacles), 0f, 0.15f);
+        InvokeRepeating(nameof(CheckForBarricades), 0f, 0.15f);
     }
 
     private void Update()
     {
-        if (currentObstacleTarget == null)
-        {
-            if (enemyMovement != null && enemyMovement.IsBlocked)
-            {
-                enemyMovement.SetBlocked(false);
-            }
-            return;
-        }
-
-        // Se o obstáculo foi destruído ou o alvo sumiu
-        if (IsTargetInvalid(currentObstacleTarget))
-        {
-            currentObstacleTarget = null;
-            if (enemyMovement != null) enemyMovement.SetBlocked(false);
-            return;
-        }
-
-        float distance = Vector2.Distance(transform.position, currentObstacleTarget.position);
-
-        if (distance <= attackRange)
-        {
-            if (enemyMovement != null)
-            {
-                enemyMovement.SetBlocked(true);
-            }
-
-            if (attackCountdown <= 0f)
-            {
-                PerformAttack();
-                attackCountdown = 1f / attackRate;
-            }
-        }
-        else
-        {
-            if (enemyMovement != null)
-            {
-                enemyMovement.SetBlocked(false);
-            }
-        }
-
         if (attackCountdown > 0f)
         {
             attackCountdown -= Time.deltaTime;
         }
-    }
 
-    private void CheckForObstacles()
-    {
-        if (currentObstacleTarget != null && !IsTargetInvalid(currentObstacleTarget))
+        // 1. Se encontrou uma barricada no caminho, ataca a barricada até quebrar
+        if (currentBarricadeTarget != null)
         {
+            Barricade b = currentBarricadeTarget.GetComponent<Barricade>();
+            if (b == null || b.IsDestroyed)
+            {
+                currentBarricadeTarget = null;
+                if (enemyMovement != null) enemyMovement.SetBlocked(false);
+                return;
+            }
+
+            if (enemyMovement != null) enemyMovement.SetBlocked(true);
+
+            if (attackCountdown <= 0f)
+            {
+                AttackBarricade(b);
+                attackCountdown = 1f / attackRate;
+            }
             return;
         }
 
-        Collider2D[] colliders = Physics2D.OverlapCircleAll(transform.position, attackRange, obstacleLayer);
-        float shortestDist = Mathf.Infinity;
-        Transform closestObstacle = null;
+        // 2. Se alcançou a Torre / Base, fica batendo nela continuamente
+        if (enemyMovement != null && enemyMovement.HasReachedTower)
+        {
+            if (attackCountdown <= 0f)
+            {
+                AttackTower();
+                attackCountdown = 1f / attackRate;
+            }
+        }
+    }
 
+    private void CheckForBarricades()
+    {
+        if (currentBarricadeTarget != null) return;
+
+        Collider2D[] colliders = Physics2D.OverlapCircleAll(transform.position, attackRange);
         foreach (Collider2D col in colliders)
         {
-            // Verifica se é uma Barreira ou um Guarda
             Barricade barricade = col.GetComponent<Barricade>();
             if (barricade != null && !barricade.IsDestroyed)
             {
-                float dist = Vector2.Distance(transform.position, col.transform.position);
-                if (dist < shortestDist)
-                {
-                    shortestDist = dist;
-                    closestObstacle = col.transform;
-                }
-                continue;
-            }
-
-            Guard guard = col.GetComponent<Guard>();
-            if (guard != null && !guard.IsDead)
-            {
-                float dist = Vector2.Distance(transform.position, col.transform.position);
-                if (dist < shortestDist)
-                {
-                    shortestDist = dist;
-                    closestObstacle = col.transform;
-                }
-                continue;
-            }
-
-            if (col.CompareTag(barricadeTag) || col.CompareTag(guardTag))
-            {
-                float dist = Vector2.Distance(transform.position, col.transform.position);
-                if (dist < shortestDist)
-                {
-                    shortestDist = dist;
-                    closestObstacle = col.transform;
-                }
-            }
-        }
-
-        // Fallback por tags se obstacleLayer for 0
-        if (closestObstacle == null && obstacleLayer.value == 0)
-        {
-            CheckTagFallback(barricadeTag, ref closestObstacle, ref shortestDist);
-            CheckTagFallback(guardTag, ref closestObstacle, ref shortestDist);
-        }
-
-        currentObstacleTarget = closestObstacle;
-    }
-
-    private void CheckTagFallback(string tag, ref Transform closest, ref float shortestDist)
-    {
-        GameObject[] objs = GameObject.FindGameObjectsWithTag(tag);
-        foreach (GameObject obj in objs)
-        {
-            float dist = Vector2.Distance(transform.position, obj.transform.position);
-            if (dist <= attackRange && dist < shortestDist)
-            {
-                shortestDist = dist;
-                closest = obj.transform;
+                currentBarricadeTarget = col.transform;
+                return;
             }
         }
     }
 
-    private bool IsTargetInvalid(Transform target)
+    private void AttackBarricade(Barricade barricade)
     {
-        if (target == null) return true;
-
-        Barricade barricade = target.GetComponent<Barricade>();
-        if (barricade != null && barricade.IsDestroyed) return true;
-
-        Guard guard = target.GetComponent<Guard>();
-        if (guard != null && guard.IsDead) return true;
-
-        return false;
+        barricade.TakeDamage(damage);
+        StartCoroutine(AttackVisualFeedback());
+        Debug.Log($"Inimigo golpeou a Barricada! Dano: {damage} (Vida restante: {barricade.CurrentHealth}/{barricade.MaxHealth})");
     }
 
-    private void PerformAttack()
+    private void AttackTower()
     {
-        if (currentObstacleTarget == null) return;
-
-        Barricade barricade = currentObstacleTarget.GetComponent<Barricade>();
-        if (barricade != null)
+        if (PlayerBase.Instance != null)
         {
-            barricade.TakeDamage(damage);
-            return;
+            PlayerBase.Instance.TakeDamage(Mathf.RoundToInt(damage));
+            StartCoroutine(AttackVisualFeedback());
+            Debug.Log($"Inimigo está batendo na Base! Dano: {damage}");
         }
+    }
 
-        Guard guard = currentObstacleTarget.GetComponent<Guard>();
-        if (guard != null)
+    private IEnumerator AttackVisualFeedback()
+    {
+        if (spriteRenderer != null)
         {
-            guard.TakeDamage(damage);
-            return;
+            Color original = spriteRenderer.color;
+            spriteRenderer.color = Color.white;
+            yield return new WaitForSeconds(0.08f);
+            if (spriteRenderer != null) spriteRenderer.color = original;
         }
     }
 

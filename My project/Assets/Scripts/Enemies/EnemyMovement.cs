@@ -14,30 +14,29 @@ public class EnemyMovement : MonoBehaviour
     [SerializeField] private bool rotateTowardsTarget = true;
     [SerializeField] private float rotationOffset = 0f;
 
-    [Header("Alvo Principal")]
+    [Header("Alvo Principal (Torre / Base)")]
     [Tooltip("Se vazio, busca automaticamente a Torre ou Base na cena.")]
     [SerializeField] private Transform targetTower;
-    [SerializeField] private int damageToTower = 5;
-
-    [Header("Detecção de Obstáculos (Barreiras e Tropas)")]
-    [SerializeField] private float obstacleCheckDistance = 0.5f;
-    [SerializeField] private LayerMask obstacleLayer;
+    [SerializeField] private float stopDistanceToTower = 0.8f;
 
     private Transform[] waypoints;
     private int currentWaypointIndex = 0;
     private bool isBlockedByObstacle = false;
+    private bool hasReachedTower = false;
 
     public float Speed => speed;
     public bool IsBlocked => isBlockedByObstacle;
+    public bool HasReachedTower => hasReachedTower;
+    public Transform TargetTower => targetTower;
 
     private void Start()
     {
-        // Encontra a Torre ou Base automaticamente se estiver no modo direto
-        if (movementMode == MovementMode.DirectToTower && targetTower == null)
+        if (targetTower == null)
         {
             FindTargetTower();
         }
-        else if (movementMode == MovementMode.FollowWaypoints && WaypointPath.Instance != null)
+
+        if (movementMode == MovementMode.FollowWaypoints && WaypointPath.Instance != null)
         {
             waypoints = WaypointPath.Instance.GetWaypoints();
         }
@@ -45,7 +44,8 @@ public class EnemyMovement : MonoBehaviour
 
     private void Update()
     {
-        if (isBlockedByObstacle) return;
+        // Se estiver bloqueado por uma barricada ou já chegou na torre para bater
+        if (isBlockedByObstacle || hasReachedTower) return;
 
         if (movementMode == MovementMode.DirectToTower)
         {
@@ -55,7 +55,14 @@ public class EnemyMovement : MonoBehaviour
                 return;
             }
 
-            MoveTowards(targetTower.position, OnReachTargetTower);
+            float distToTower = Vector2.Distance(transform.position, targetTower.position);
+            if (distToTower <= stopDistanceToTower)
+            {
+                hasReachedTower = true;
+                return;
+            }
+
+            MoveTowards(targetTower.position, () => { hasReachedTower = true; });
         }
         else if (movementMode == MovementMode.FollowWaypoints)
         {
@@ -70,7 +77,6 @@ public class EnemyMovement : MonoBehaviour
 
     private void FindTargetTower()
     {
-        // 1. Tenta achar objeto com script Tower
         Tower tower = FindObjectOfType<Tower>();
         if (tower != null)
         {
@@ -78,14 +84,12 @@ public class EnemyMovement : MonoBehaviour
             return;
         }
 
-        // 2. Tenta achar PlayerBase
         if (PlayerBase.Instance != null)
         {
             targetTower = PlayerBase.Instance.transform;
             return;
         }
 
-        // 3. Fallback por tags
         GameObject towerObj = GameObject.FindWithTag("Tower");
         if (towerObj != null)
         {
@@ -99,7 +103,7 @@ public class EnemyMovement : MonoBehaviour
 
         if (currentWaypointIndex >= waypoints.Length)
         {
-            OnReachTargetTower();
+            hasReachedTower = true;
             return;
         }
 
@@ -115,7 +119,7 @@ public class EnemyMovement : MonoBehaviour
             currentWaypointIndex++;
             if (currentWaypointIndex >= waypoints.Length)
             {
-                OnReachTargetTower();
+                hasReachedTower = true;
             }
         });
     }
@@ -131,20 +135,9 @@ public class EnemyMovement : MonoBehaviour
             transform.rotation = Quaternion.Euler(0, 0, angle + rotationOffset);
         }
 
-        if (Vector2.Distance(transform.position, destination) <= 0.2f)
+        if (Vector2.Distance(transform.position, destination) <= 0.15f)
         {
             onReach?.Invoke();
         }
-    }
-
-    private void OnReachTargetTower()
-    {
-        // Causa dano à base/torre
-        if (PlayerBase.Instance != null)
-        {
-            PlayerBase.Instance.TakeDamage(damageToTower);
-        }
-
-        Destroy(gameObject);
     }
 }

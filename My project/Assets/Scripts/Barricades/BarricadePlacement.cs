@@ -1,5 +1,8 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 public class BarricadePlacement : MonoBehaviour
 {
@@ -8,7 +11,7 @@ public class BarricadePlacement : MonoBehaviour
     [Header("Configurações de Construção")]
     [SerializeField] private GameObject barricadePrefab;
     [SerializeField] private int barricadeCost = 40;
-    [SerializeField] private LayerMask blockedLayers; // Ex: não colocar em cima de outra barreira/torre
+    [SerializeField] private LayerMask blockedLayers;
 
     private bool isPlacing = false;
     private GameObject previewObject;
@@ -43,7 +46,7 @@ public class BarricadePlacement : MonoBehaviour
         }
 
         // Clique esquerdo para posicionar
-        if (Input.GetMouseButtonDown(0))
+        if (IsLeftMouseButtonPressed())
         {
             // Evita clicar através de elementos da UI
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
@@ -55,7 +58,7 @@ public class BarricadePlacement : MonoBehaviour
         }
 
         // Clique direito ou ESC para cancelar
-        if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
+        if (IsCancelPressed())
         {
             CancelPlacement();
         }
@@ -75,14 +78,13 @@ public class BarricadePlacement : MonoBehaviour
         {
             previewObject = Instantiate(barricadePrefab);
             
-            // Desativa colliders e scripts no objeto de preview
+            // Desativa colliders e scripts no preview
             Collider2D col = previewObject.GetComponent<Collider2D>();
             if (col != null) col.enabled = false;
 
             Barricade barricadeScript = previewObject.GetComponent<Barricade>();
             if (barricadeScript != null) barricadeScript.enabled = false;
 
-            // Deixa semi-transparente
             SpriteRenderer sr = previewObject.GetComponent<SpriteRenderer>();
             if (sr != null)
             {
@@ -118,10 +120,48 @@ public class BarricadePlacement : MonoBehaviour
         }
     }
 
+    private bool IsLeftMouseButtonPressed()
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (Mouse.current != null)
+        {
+            return Mouse.current.leftButton.wasPressedThisFrame;
+        }
+#endif
+        return Input.GetMouseButtonDown(0);
+    }
+
+    private bool IsCancelPressed()
+    {
+#if ENABLE_INPUT_SYSTEM
+        bool rightMouse = Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;
+        bool escKey = Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
+        return rightMouse || escKey;
+#else
+        return Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape);
+#endif
+    }
+
     private Vector3 GetMouseWorldPosition()
     {
         if (mainCamera == null) mainCamera = Camera.main;
-        Vector3 mouseScreenPos = Input.mousePosition;
+
+        Vector3 mouseScreenPos;
+
+#if ENABLE_INPUT_SYSTEM
+        if (Mouse.current != null)
+        {
+            Vector2 mPos = Mouse.current.position.ReadValue();
+            mouseScreenPos = new Vector3(mPos.x, mPos.y, 0);
+        }
+        else
+        {
+            mouseScreenPos = Input.mousePosition;
+        }
+#else
+        mouseScreenPos = Input.mousePosition;
+#endif
+
         mouseScreenPos.z = -mainCamera.transform.position.z;
         Vector3 worldPos = mainCamera.ScreenToWorldPoint(mouseScreenPos);
         worldPos.z = 0;

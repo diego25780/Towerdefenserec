@@ -109,7 +109,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Enemy
   maxHealth: 1200
   goldReward: 150
-  deathEffect: {fileID: 0}
+  deathEffect: {fileID: 6196290745241899542, guid: 79d3771e68cb07b43aeab819a844f595, type: 3}
 --- !u!114 &2043613081917531117
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -201,4 +201,4 @@ MonoBehaviour:
   obstacleCheckDistance: 0.5
   obstacleLayer:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 256

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 
 public class Guard : MonoBehaviour
@@ -20,7 +21,7 @@ public class Guard : MonoBehaviour
 
     [Header("Alcances")]
     [Tooltip("Distância que o ataque alcança o inimigo")]
-    [SerializeField] private float attackRange = 0.8f; // Maior se for Ranged (ex: 4.5f)
+    [SerializeField] private float attackRange = 0.9f;
     [Tooltip("Raio para começar a mirar ou ir atrás do inimigo")]
     [SerializeField] private float detectionRange = 3.5f;
 
@@ -37,6 +38,7 @@ public class Guard : MonoBehaviour
     private Vector3 guardPosition;
     private Transform currentTarget;
     private GuardBarracks parentBarracks;
+    private SpriteRenderer spriteRenderer;
 
     public TroopType CurrentTroopType => troopType;
     public float CurrentHealth => currentHealth;
@@ -49,13 +51,15 @@ public class Guard : MonoBehaviour
     private void Awake()
     {
         if (firePoint == null) firePoint = transform;
+        spriteRenderer = GetComponent<SpriteRenderer>();
     }
 
     private void Start()
     {
         currentHealth = maxHealth;
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
-        InvokeRepeating(nameof(UpdateTarget), 0f, 0.2f);
+        if (guardPosition == Vector3.zero) guardPosition = transform.position;
+        InvokeRepeating(nameof(UpdateTarget), 0f, 0.15f);
     }
 
     public void Setup(GuardBarracks barracks, Vector3 assignedPosition)
@@ -86,6 +90,7 @@ public class Guard : MonoBehaviour
                 }
                 else
                 {
+                    FaceTarget(currentTarget.position);
                     if (attackCountdown <= 0f)
                     {
                         AttackMelee();
@@ -95,10 +100,8 @@ public class Guard : MonoBehaviour
             }
             else if (troopType == TroopType.Ranged)
             {
-                // Arqueiro: permanece no posto de guarda e atira à distância
                 if (distanceToEnemy <= attackRange)
                 {
-                    // Vira para o alvo
                     FaceTarget(currentTarget.position);
 
                     if (attackCountdown <= 0f)
@@ -109,7 +112,6 @@ public class Guard : MonoBehaviour
                 }
                 else
                 {
-                    // Se o inimigo saiu do alcance de tiro, volta para o posto
                     if (Vector2.Distance(transform.position, guardPosition) > 0.1f)
                     {
                         MoveTowards(guardPosition);
@@ -154,11 +156,12 @@ public class Guard : MonoBehaviour
 
     private void UpdateTarget()
     {
+        // Se o alvo atual já morreu ou saiu muito de alcance
         if (currentTarget != null)
         {
-            Enemy enemy = currentTarget.GetComponent<Enemy>();
-            float maxTrackRange = troopType == TroopType.Ranged ? attackRange : detectionRange;
-            if (enemy == null || enemy.IsDead || Vector2.Distance(guardPosition, currentTarget.position) > maxTrackRange)
+            Enemy enemyComp = currentTarget.GetComponent<Enemy>();
+            float maxTrack = (troopType == TroopType.Ranged ? attackRange : detectionRange) * 1.3f;
+            if (enemyComp == null || enemyComp.IsDead || Vector2.Distance(transform.position, currentTarget.position) > maxTrack)
             {
                 currentTarget = null;
             }
@@ -167,39 +170,44 @@ public class Guard : MonoBehaviour
         if (currentTarget == null)
         {
             float searchRange = troopType == TroopType.Ranged ? attackRange : detectionRange;
-            Collider2D[] colliders = Physics2D.OverlapCircleAll(guardPosition, searchRange, enemyLayer);
             float shortestDist = Mathf.Infinity;
-            Transform closestEnemy = null;
+            Transform bestTarget = null;
 
+            // 1. Busca por Colisores usando Physics2D
+            Collider2D[] colliders = Physics2D.OverlapCircleAll(transform.position, searchRange);
             foreach (Collider2D col in colliders)
             {
                 Enemy enemy = col.GetComponent<Enemy>();
                 if ((enemy != null && !enemy.IsDead) || col.CompareTag(enemyTag))
                 {
-                    float dist = Vector2.Distance(guardPosition, col.transform.position);
+                    float dist = Vector2.Distance(transform.position, col.transform.position);
                     if (dist < shortestDist)
                     {
                         shortestDist = dist;
-                        closestEnemy = col.transform;
+                        bestTarget = col.transform;
                     }
                 }
             }
 
-            if (closestEnemy == null && enemyLayer.value == 0)
+            // 2. Fallback robusto se nenhum collider respondeu
+            if (bestTarget == null)
             {
-                GameObject[] enemies = GameObject.FindGameObjectsWithTag(enemyTag);
-                foreach (GameObject enemyObj in enemies)
+                Enemy[] allEnemies = FindObjectsOfType<Enemy>();
+                foreach (Enemy enemy in allEnemies)
                 {
-                    float dist = Vector2.Distance(guardPosition, enemyObj.transform.position);
-                    if (dist <= searchRange && dist < shortestDist)
+                    if (enemy != null && !enemy.IsDead)
                     {
-                        shortestDist = dist;
-                        closestEnemy = enemyObj.transform;
+                        float dist = Vector2.Distance(transform.position, enemy.transform.position);
+                        if (dist <= searchRange && dist < shortestDist)
+                        {
+                            shortestDist = dist;
+                            bestTarget = enemy.transform;
+                        }
                     }
                 }
             }
 
-            currentTarget = closestEnemy;
+            currentTarget = bestTarget;
         }
     }
 
@@ -211,6 +219,8 @@ public class Guard : MonoBehaviour
         if (enemy != null)
         {
             enemy.TakeDamage(damage);
+            StartCoroutine(AttackVisualFeedback());
+            Debug.Log($"Guarda golpeou {enemy.gameObject.name} causando {damage} de dano!");
         }
     }
 
@@ -226,6 +236,17 @@ public class Guard : MonoBehaviour
         }
     }
 
+    private IEnumerator AttackVisualFeedback()
+    {
+        if (spriteRenderer != null)
+        {
+            Color original = spriteRenderer.color;
+            spriteRenderer.color = Color.yellow;
+            yield return new WaitForSeconds(0.1f);
+            if (spriteRenderer != null) spriteRenderer.color = original;
+        }
+    }
+
     public void TakeDamage(float incomingDamage)
     {
         if (IsDead) return;
@@ -234,9 +255,22 @@ public class Guard : MonoBehaviour
         currentHealth = Mathf.Max(0, currentHealth);
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
 
+        StartCoroutine(DamageFlash());
+
         if (currentHealth <= 0)
         {
             Die();
+        }
+    }
+
+    private IEnumerator DamageFlash()
+    {
+        if (spriteRenderer != null)
+        {
+            Color orig = spriteRenderer.color;
+            spriteRenderer.color = Color.red;
+            yield return new WaitForSeconds(0.1f);
+            if (spriteRenderer != null) spriteRenderer.color = orig;
         }
     }
 
