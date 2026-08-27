@@ -1663,7 +1663,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 186441ac8bfd64d4aa2a468dec9f52c5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemySpawner
-  paths: []
+  paths:
+  - {fileID: 0}
+  - {fileID: 0}
   pathMode: 0
   waves:
   - waveName: Onda 1
@@ -1676,6 +1678,32 @@ MonoBehaviour:
       enemyPrefab: {fileID: 3123253203267725060, guid: 43c06907b211599418ce58d9d446233e, type: 3}
       count: 2
       spawnInterval: 1
+    timeAfterWave: 5
+  - waveName: Onda 2
+    enemyGroups:
+    - groupName: "R\xE1pidos"
+      enemyPrefab: {fileID: 9097515934110754517, guid: 54f29be929ae44246836e411da368c09, type: 3}
+      count: 4
+      spawnInterval: 1.5
+    - groupName: Tanques
+      enemyPrefab: {fileID: 3123253203267725060, guid: 43c06907b211599418ce58d9d446233e, type: 3}
+      count: 5
+      spawnInterval: 1.5
+    timeAfterWave: 5
+  - waveName: Onda 3
+    enemyGroups:
+    - groupName: "R\xE1pidos"
+      enemyPrefab: {fileID: 9097515934110754517, guid: 54f29be929ae44246836e411da368c09, type: 3}
+      count: 5
+      spawnInterval: 1.5
+    - groupName: Tanques
+      enemyPrefab: {fileID: 3123253203267725060, guid: 43c06907b211599418ce58d9d446233e, type: 3}
+      count: 5
+      spawnInterval: 1.5
+    - groupName: "Chef\xE3o"
+      enemyPrefab: {fileID: 214114850521652062, guid: a7253d3743e7465488640580e0f488e8, type: 3}
+      count: 2
+      spawnInterval: 1.5
     timeAfterWave: 5
   initialDelay: 2
 --- !u!1 &344877348
