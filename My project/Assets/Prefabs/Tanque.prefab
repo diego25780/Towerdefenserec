@@ -65,15 +65,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyMovement
   movementMode: 0
-  speed: 1.6
+  speed: 1.3
   rotateTowardsTarget: 0
   rotationOffset: 0
   targetTower: {fileID: 0}
-  damageToTower: 5
-  obstacleCheckDistance: 0.5
-  obstacleLayer:
-    serializedVersion: 2
-    m_Bits: 256
+  stopDistanceToTower: 0.8
 --- !u!212 &6665527152784217096
 SpriteRenderer:
   serializedVersion: 2
@@ -192,12 +188,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAttack
   damage: 15
-  attackRange: 0.8
   attackRate: 1
-  obstacleLayer:
-    serializedVersion: 2
-    m_Bits: 256
-  guardTag: Guard
+  attackRange: 0.8
   barricadeTag: Barricade
 --- !u!114 &4205547912240855944
 MonoBehaviour:

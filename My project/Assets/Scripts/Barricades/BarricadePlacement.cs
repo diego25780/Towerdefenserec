@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
 #if ENABLE_INPUT_SYSTEM
@@ -11,9 +12,9 @@ public class BarricadePlacement : MonoBehaviour
     [Header("Configurações de Construção")]
     [SerializeField] private GameObject barricadePrefab;
     [SerializeField] private int barricadeCost = 40;
-    [SerializeField] private LayerMask blockedLayers;
 
     private bool isPlacing = false;
+    private bool canPlaceThisFrame = false;
     private GameObject previewObject;
     private Camera mainCamera;
 
@@ -45,10 +46,12 @@ public class BarricadePlacement : MonoBehaviour
             previewObject.transform.position = mouseWorldPos;
         }
 
-        // Clique esquerdo para posicionar
+        // Aguarda 1 frame após clicar no botão da UI para não colocar a barricada em cima do botão
+        if (!canPlaceThisFrame) return;
+
+        // Clique esquerdo no mapa para posicionar a barreira
         if (IsLeftMouseButtonPressed())
         {
-            // Evita clicar através de elementos da UI
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
             {
                 return;
@@ -73,26 +76,36 @@ public class BarricadePlacement : MonoBehaviour
         }
 
         isPlacing = true;
+        canPlaceThisFrame = false;
+        StartCoroutine(EnablePlacementNextFrame());
 
         if (barricadePrefab != null && previewObject == null)
         {
             previewObject = Instantiate(barricadePrefab);
-            
-            // Desativa colliders e scripts no preview
-            Collider2D col = previewObject.GetComponent<Collider2D>();
-            if (col != null) col.enabled = false;
+
+            // Desativa colisores e scripts na prévia
+            Collider2D[] cols = previewObject.GetComponentsInChildren<Collider2D>();
+            foreach (Collider2D c in cols) c.enabled = false;
 
             Barricade barricadeScript = previewObject.GetComponent<Barricade>();
             if (barricadeScript != null) barricadeScript.enabled = false;
 
-            SpriteRenderer sr = previewObject.GetComponent<SpriteRenderer>();
-            if (sr != null)
+            // Deixa a prévia semi-transparente
+            SpriteRenderer[] srs = previewObject.GetComponentsInChildren<SpriteRenderer>();
+            foreach (SpriteRenderer sr in srs)
             {
                 Color c = sr.color;
                 c.a = 0.5f;
                 sr.color = c;
+                sr.sortingOrder = 100;
             }
         }
+    }
+
+    private IEnumerator EnablePlacementNextFrame()
+    {
+        yield return null;
+        canPlaceThisFrame = true;
     }
 
     private void PlaceBarricade(Vector3 position)
@@ -100,7 +113,7 @@ public class BarricadePlacement : MonoBehaviour
         if (CoinManager.Instance != null && CoinManager.Instance.SpendCoins(barricadeCost))
         {
             Instantiate(barricadePrefab, position, Quaternion.identity);
-            Debug.Log($"Barreira construída por {barricadeCost} moedas!");
+            Debug.Log($"Barreira posicionada com sucesso na posição {position} por {barricadeCost} moedas!");
             CancelPlacement();
         }
         else
@@ -113,6 +126,7 @@ public class BarricadePlacement : MonoBehaviour
     public void CancelPlacement()
     {
         isPlacing = false;
+        canPlaceThisFrame = false;
         if (previewObject != null)
         {
             Destroy(previewObject);
@@ -145,6 +159,7 @@ public class BarricadePlacement : MonoBehaviour
     private Vector3 GetMouseWorldPosition()
     {
         if (mainCamera == null) mainCamera = Camera.main;
+        if (mainCamera == null) return Vector3.zero;
 
         Vector3 mouseScreenPos;
 

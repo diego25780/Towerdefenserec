@@ -1,5 +1,9 @@
 using System;
 using UnityEngine;
+using UnityEngine.EventSystems;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 public class Tower : MonoBehaviour
 {
@@ -47,6 +51,7 @@ public class Tower : MonoBehaviour
 
     private Transform currentTarget;
     private float fireCountdown = 0f;
+    private Camera mainCam;
 
     public string TowerName => towerName;
     public float Range => currentRange;
@@ -66,6 +71,16 @@ public class Tower : MonoBehaviour
         currentDamage = baseDamage;
         currentRange = baseRange;
         SelectedTower = this;
+        mainCam = Camera.main;
+
+        // Garante que a torre tenha colisor 2D para clique
+        Collider2D col = GetComponent<Collider2D>();
+        if (col == null)
+        {
+            CircleCollider2D circle = gameObject.AddComponent<CircleCollider2D>();
+            circle.radius = 0.6f;
+            circle.isTrigger = true;
+        }
     }
 
     private void Start()
@@ -81,6 +96,7 @@ public class Tower : MonoBehaviour
 
     private void OnMouseDown()
     {
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
         SelectTower();
     }
 
@@ -93,22 +109,33 @@ public class Tower : MonoBehaviour
 
     private void Update()
     {
+        // Detecção de clique no New Input System
+        if (IsLeftMouseClicked())
+        {
+            if (EventSystem.current == null || !EventSystem.current.IsPointerOverGameObject())
+            {
+                Vector3 mousePos = GetMouseWorldPos();
+                Collider2D col = GetComponent<Collider2D>();
+                if (col != null && col.OverlapPoint(mousePos))
+                {
+                    SelectTower();
+                }
+            }
+        }
+
         if (currentTarget == null) return;
 
-        // Se o alvo saiu do alcance ou foi destruído
         if (Vector2.Distance(transform.position, currentTarget.position) > currentRange)
         {
             currentTarget = null;
             return;
         }
 
-        // Rotaciona em direção ao alvo
         if (partToRotate != null)
         {
             RotateTowardsTarget();
         }
 
-        // Contador de disparo
         if (fireCountdown <= 0f)
         {
             Shoot();
@@ -124,7 +151,6 @@ public class Tower : MonoBehaviour
         float lowestHealth = Mathf.Infinity;
         Transform chosenEnemy = null;
 
-        // 1. Busca usando Physics2D
         Collider2D[] colliders = Physics2D.OverlapCircleAll(transform.position, currentRange);
         foreach (Collider2D col in colliders)
         {
@@ -153,7 +179,6 @@ public class Tower : MonoBehaviour
             }
         }
 
-        // 2. Fallback por componentes se nenhum collider foi achado
         if (chosenEnemy == null)
         {
             Enemy[] allEnemies = FindObjectsOfType<Enemy>();
@@ -226,6 +251,37 @@ public class Tower : MonoBehaviour
 
         Debug.LogWarning("Moedas insuficientes para evoluir o alcance da torre!");
         return false;
+    }
+
+    private bool IsLeftMouseClicked()
+    {
+#if ENABLE_INPUT_SYSTEM
+        return Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
+#else
+        return Input.GetMouseButtonDown(0);
+#endif
+    }
+
+    private Vector3 GetMouseWorldPos()
+    {
+        if (mainCam == null) mainCam = Camera.main;
+        if (mainCam == null) return Vector3.zero;
+
+        Vector3 screenPos;
+#if ENABLE_INPUT_SYSTEM
+        if (Mouse.current != null)
+        {
+            Vector2 m = Mouse.current.position.ReadValue();
+            screenPos = new Vector3(m.x, m.y, 0);
+        }
+        else screenPos = Input.mousePosition;
+#else
+        screenPos = Input.mousePosition;
+#endif
+        screenPos.z = -mainCam.transform.position.z;
+        Vector3 world = mainCam.ScreenToWorldPoint(screenPos);
+        world.z = 0;
+        return world;
     }
 
     private void OnDrawGizmosSelected()

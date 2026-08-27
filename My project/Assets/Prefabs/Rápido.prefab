@@ -124,12 +124,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAttack
   damage: 10
-  attackRange: 4
   attackRate: 1
-  obstacleLayer:
-    serializedVersion: 2
-    m_Bits: 256
-  guardTag: Guard
+  attackRange: 4
   barricadeTag: Barricade
 --- !u!61 &7519614052143362072
 BoxCollider2D:
@@ -190,15 +186,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyMovement
   movementMode: 0
-  speed: 5
+  speed: 3.6
   rotateTowardsTarget: 1
   rotationOffset: 0
   targetTower: {fileID: 0}
-  damageToTower: 5
-  obstacleCheckDistance: 0.5
-  obstacleLayer:
-    serializedVersion: 2
-    m_Bits: 256
+  stopDistanceToTower: 0.8
 --- !u!114 &7067393453904601055
 MonoBehaviour:
   m_ObjectHideFlags: 0

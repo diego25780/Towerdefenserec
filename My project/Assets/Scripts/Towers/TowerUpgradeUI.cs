@@ -4,9 +4,10 @@ using UnityEngine.UI;
 
 public class TowerUpgradeUI : MonoBehaviour
 {
-    [Header("Referência da Torre")]
-    [Tooltip("Deixe vazio para conectar automaticamente à última torre selecionada.")]
-    [SerializeField] private Tower targetTower;
+    public static TowerUpgradeUI Instance { get; private set; }
+
+    [Header("Referência da Torre Selecionada")]
+    [SerializeField] private Tower selectedTower;
 
     [Header("Botões de Evolução")]
     [SerializeField] private Button damageUpgradeButton;
@@ -23,13 +24,13 @@ public class TowerUpgradeUI : MonoBehaviour
     [SerializeField] private Text rangeCostLegacyText;
     [SerializeField] private Text levelsLegacyText;
 
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+    }
+
     private void Start()
     {
-        if (targetTower == null)
-        {
-            targetTower = Tower.SelectedTower;
-        }
-
         if (damageUpgradeButton != null)
         {
             damageUpgradeButton.onClick.AddListener(OnDamageUpgradeClicked);
@@ -40,12 +41,17 @@ public class TowerUpgradeUI : MonoBehaviour
             rangeUpgradeButton.onClick.AddListener(OnRangeUpgradeClicked);
         }
 
-        Tower.OnTowerSelected += SetTargetTower;
+        Tower.OnTowerSelected += SetSelectedTower;
         CoinManager.OnCoinsChanged += OnCoinsChanged;
 
-        if (targetTower != null)
+        if (selectedTower == null)
         {
-            targetTower.OnTowerUpgraded += UpdateUI;
+            selectedTower = Tower.SelectedTower;
+        }
+
+        if (selectedTower != null)
+        {
+            selectedTower.OnTowerUpgraded += UpdateUI;
         }
 
         UpdateUI();
@@ -53,26 +59,26 @@ public class TowerUpgradeUI : MonoBehaviour
 
     private void OnDestroy()
     {
-        Tower.OnTowerSelected -= SetTargetTower;
+        Tower.OnTowerSelected -= SetSelectedTower;
         CoinManager.OnCoinsChanged -= OnCoinsChanged;
-        if (targetTower != null)
+        if (selectedTower != null)
         {
-            targetTower.OnTowerUpgraded -= UpdateUI;
+            selectedTower.OnTowerUpgraded -= UpdateUI;
         }
     }
 
-    public void SetTargetTower(Tower tower)
+    public void SetSelectedTower(Tower tower)
     {
-        if (targetTower != null)
+        if (selectedTower != null)
         {
-            targetTower.OnTowerUpgraded -= UpdateUI;
+            selectedTower.OnTowerUpgraded -= UpdateUI;
         }
 
-        targetTower = tower;
+        selectedTower = tower;
 
-        if (targetTower != null)
+        if (selectedTower != null)
         {
-            targetTower.OnTowerUpgraded += UpdateUI;
+            selectedTower.OnTowerUpgraded += UpdateUI;
         }
 
         UpdateUI();
@@ -85,34 +91,45 @@ public class TowerUpgradeUI : MonoBehaviour
 
     public void OnDamageUpgradeClicked()
     {
-        if (targetTower != null)
+        if (selectedTower != null)
         {
-            targetTower.UpgradeDamage();
+            selectedTower.UpgradeDamage();
             UpdateUI();
         }
     }
 
     public void OnRangeUpgradeClicked()
     {
-        if (targetTower != null)
+        if (selectedTower != null)
         {
-            targetTower.UpgradeRange();
+            selectedTower.UpgradeRange();
             UpdateUI();
         }
     }
 
     public void UpdateUI()
     {
-        if (targetTower == null) return;
+        if (selectedTower == null)
+        {
+            string noTower = "Selecione uma Torre no Mapa";
+            if (towerNameTMP != null) towerNameTMP.text = noTower;
+            if (damageCostTMP != null) damageCostTMP.text = "-";
+            if (rangeCostTMP != null) rangeCostTMP.text = "-";
+            if (levelsTMP != null) levelsTMP.text = "Nenhuma torre selecionada";
 
-        int dmgCost = targetTower.CurrentDamageUpgradeCost;
-        int rngCost = targetTower.CurrentRangeUpgradeCost;
+            if (damageUpgradeButton != null) damageUpgradeButton.interactable = false;
+            if (rangeUpgradeButton != null) rangeUpgradeButton.interactable = false;
+            return;
+        }
+
+        int dmgCost = selectedTower.CurrentDamageUpgradeCost;
+        int rngCost = selectedTower.CurrentRangeUpgradeCost;
         int currentCoins = CoinManager.Instance != null ? CoinManager.Instance.CurrentCoins : 0;
 
-        string nameText = targetTower.TowerName;
-        string dmgText = $"Evoluir Dano (Nv {targetTower.DamageLevel})\nCusto: {dmgCost} Moedas";
-        string rngText = $"Evoluir Alcance (Nv {targetTower.RangeLevel})\nCusto: {rngCost} Moedas";
-        string lvlText = $"Dano: {targetTower.Damage} (Nv {targetTower.DamageLevel}) | Alcance: {targetTower.Range:F1} (Nv {targetTower.RangeLevel})";
+        string nameText = $"Torre: {selectedTower.TowerName}";
+        string dmgText = $"Evoluir Dano (Nv {selectedTower.DamageLevel})\nCusto: {dmgCost}$";
+        string rngText = $"Evoluir Alcance (Nv {selectedTower.RangeLevel})\nCusto: {rngCost}$";
+        string lvlText = $"Dano: {selectedTower.Damage} (Nv {selectedTower.DamageLevel}) | Alcance: {selectedTower.Range:F1} (Nv {selectedTower.RangeLevel})";
 
         if (towerNameTMP != null) towerNameTMP.text = nameText;
         if (damageCostTMP != null) damageCostTMP.text = dmgText;

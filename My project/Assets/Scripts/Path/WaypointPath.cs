@@ -1,23 +1,25 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class WaypointPath : MonoBehaviour
 {
-    public static WaypointPath Instance { get; private set; }
+    public static List<WaypointPath> AllPaths { get; private set; } = new List<WaypointPath>();
 
-    [Header("Waypoints do Caminho")]
+    [Header("Configuração do Caminho")]
+    [SerializeField] private string pathName = "Caminho Principal";
+    [SerializeField] private Color gizmoColor = Color.green;
+
+    [Header("Waypoints")]
     [Tooltip("Se deixar vazio, os objetos filhos deste GameObject serão usados automaticamente como waypoints.")]
     [SerializeField] private Transform[] waypoints;
 
+    public string PathName => pathName;
+
     private void Awake()
     {
-        if (Instance == null)
+        if (!AllPaths.Contains(this))
         {
-            Instance = this;
-        }
-        else
-        {
-            Destroy(gameObject);
-            return;
+            AllPaths.Add(this);
         }
 
         // Popula automaticamente com os GameObjects filhos se o array estiver vazio
@@ -31,14 +33,37 @@ public class WaypointPath : MonoBehaviour
         }
     }
 
+    private void OnDestroy()
+    {
+        AllPaths.Remove(this);
+    }
+
     public Transform[] GetWaypoints()
     {
+        if (waypoints == null || waypoints.Length == 0)
+        {
+            waypoints = new Transform[transform.childCount];
+            for (int i = 0; i < transform.childCount; i++)
+            {
+                waypoints[i] = transform.GetChild(i);
+            }
+        }
         return waypoints;
+    }
+
+    public Vector3 GetStartPoint()
+    {
+        Transform[] pts = GetWaypoints();
+        if (pts != null && pts.Length > 0 && pts[0] != null)
+        {
+            return pts[0].position;
+        }
+        return transform.position;
     }
 
     private void OnDrawGizmos()
     {
-        Gizmos.color = Color.green;
+        Gizmos.color = gizmoColor;
 
         if (waypoints != null && waypoints.Length > 0)
         {
