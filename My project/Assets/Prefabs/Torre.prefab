@@ -28,7 +28,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -9.3, y: 2.77, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 3, y: 3, z: 3}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8886143852326311827}
@@ -46,7 +46,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f47e59f074e016443a58f81c4debcc17, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tower
-  towerName: "Canh\xE3o"
+  towerName: Snake
   baseRange: 4.5
   fireRate: 1.2
   baseDamage: 25
@@ -54,9 +54,13 @@ MonoBehaviour:
   baseDamageCost: 30
   damageCostMultiplier: 1.4
   damageBonusPerLevel: 10
+  maxDamageLevel: 4
   baseRangeCost: 25
   rangeCostMultiplier: 1.4
   rangeBonusPerLevel: 0.8
+  maxRangeLevel: 4
+  initialBuildCost: 70
+  sellRefundPercent: 0.7
   projectilePrefab: {fileID: 3828745021572900597, guid: 42707a27de887c3449e048acdcc7103d, type: 3}
   firePoint: {fileID: 8886143852326311827}
   partToRotate: {fileID: 0}
@@ -114,8 +118,8 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 10911, guid: 0000000000000000f000000000000000, type: 0}
-  m_Color: {r: 1, g: 0.07843138, b: 0.5764706, a: 1}
+  m_Sprite: {fileID: -2984546009641701739, guid: 25005bdd478effc46969ef97862dc24f, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0

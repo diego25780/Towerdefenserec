@@ -27,6 +27,12 @@ public class Enemy : MonoBehaviour
     private void Awake()
     {
         ActiveEnemies.Add(this);
+
+        SpriteRenderer sr = GetComponent<SpriteRenderer>();
+        if (sr != null && sr.sortingOrder < 15)
+        {
+            sr.sortingOrder = 15;
+        }
     }
 
     private void Start()

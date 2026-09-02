@@ -22,6 +22,11 @@ public class Barricade : MonoBehaviour
         {
             spriteRenderer = GetComponent<SpriteRenderer>();
         }
+
+        if (spriteRenderer != null && spriteRenderer.sortingOrder < 8)
+        {
+            spriteRenderer.sortingOrder = 8;
+        }
     }
 
     private void Start()

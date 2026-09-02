@@ -88,6 +88,13 @@ public class Tower : MonoBehaviour
         SelectedTower = this;
         mainCam = Camera.main;
 
+        // Garante que o sprite da torre fique visível na frente do mapa e do spot
+        SpriteRenderer sr = GetComponent<SpriteRenderer>();
+        if (sr != null && sr.sortingOrder < 10)
+        {
+            sr.sortingOrder = 10;
+        }
+
         // Garante que a torre tenha colisor 2D para clique
         Collider2D col = GetComponent<Collider2D>();
         if (col == null)
