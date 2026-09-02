@@ -23,14 +23,7 @@ public class WaypointPath : MonoBehaviour
         }
 
         // Popula automaticamente com os GameObjects filhos se o array estiver vazio
-        if (waypoints == null || waypoints.Length == 0)
-        {
-            waypoints = new Transform[transform.childCount];
-            for (int i = 0; i < transform.childCount; i++)
-            {
-                waypoints[i] = transform.GetChild(i);
-            }
-        }
+        PopulateWaypointsIfEmpty();
     }
 
     private void OnDestroy()
@@ -38,27 +31,42 @@ public class WaypointPath : MonoBehaviour
         AllPaths.Remove(this);
     }
 
-    public Transform[] GetWaypoints()
+    private void PopulateWaypointsIfEmpty()
     {
         if (waypoints == null || waypoints.Length == 0)
         {
-            waypoints = new Transform[transform.childCount];
+            List<Transform> children = new List<Transform>();
             for (int i = 0; i < transform.childCount; i++)
             {
-                waypoints[i] = transform.GetChild(i);
+                Transform child = transform.GetChild(i);
+                if (child != null)
+                {
+                    children.Add(child);
+                }
             }
+            waypoints = children.ToArray();
         }
+    }
+
+    public Transform[] GetWaypoints()
+    {
+        PopulateWaypointsIfEmpty();
         return waypoints;
     }
 
-    public Vector3 GetStartPoint()
+    public Transform GetStartTransform()
     {
         Transform[] pts = GetWaypoints();
         if (pts != null && pts.Length > 0 && pts[0] != null)
         {
-            return pts[0].position;
+            return pts[0];
         }
-        return transform.position;
+        return transform;
+    }
+
+    public Vector3 GetStartPoint()
+    {
+        return GetStartTransform().position;
     }
 
     private void OnDrawGizmos()

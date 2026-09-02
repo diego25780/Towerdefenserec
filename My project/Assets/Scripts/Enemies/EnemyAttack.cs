@@ -26,7 +26,7 @@ public class EnemyAttack : MonoBehaviour
 
     private void Start()
     {
-        InvokeRepeating(nameof(CheckForBarricades), 0f, 0.15f);
+        InvokeRepeating(nameof(CheckForBarricades), 0f, 0.12f);
     }
 
     private void Update()
@@ -40,14 +40,14 @@ public class EnemyAttack : MonoBehaviour
         if (currentBarricadeTarget != null)
         {
             Barricade b = currentBarricadeTarget.GetComponent<Barricade>();
-            if (b == null || b.IsDestroyed)
+            if (b == null || b.IsDestroyed || !currentBarricadeTarget.gameObject.activeInHierarchy)
             {
                 currentBarricadeTarget = null;
                 if (enemyMovement != null) enemyMovement.SetBlocked(false);
                 return;
             }
 
-            if (enemyMovement != null) enemyMovement.SetBlocked(true);
+            if (enemyMovement != null) enemyMovement.SetBlocked(true, currentBarricadeTarget);
 
             if (attackCountdown <= 0f)
             {
@@ -79,6 +79,7 @@ public class EnemyAttack : MonoBehaviour
             if (barricade != null && !barricade.IsDestroyed)
             {
                 currentBarricadeTarget = col.transform;
+                if (enemyMovement != null) enemyMovement.SetBlocked(true, currentBarricadeTarget);
                 return;
             }
         }
@@ -88,7 +89,6 @@ public class EnemyAttack : MonoBehaviour
     {
         barricade.TakeDamage(damage);
         StartCoroutine(AttackVisualFeedback());
-        Debug.Log($"Inimigo golpeou a Barricada! Dano: {damage} (Vida restante: {barricade.CurrentHealth}/{barricade.MaxHealth})");
     }
 
     private void AttackTower()
@@ -97,7 +97,6 @@ public class EnemyAttack : MonoBehaviour
         {
             PlayerBase.Instance.TakeDamage(Mathf.RoundToInt(damage));
             StartCoroutine(AttackVisualFeedback());
-            Debug.Log($"Inimigo está batendo na Base! Dano: {damage}");
         }
     }
 

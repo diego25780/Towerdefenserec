@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class Enemy : MonoBehaviour
 {
+    public static readonly List<Enemy> ActiveEnemies = new List<Enemy>();
+
     [Header("Configurações de Vida")]
     [SerializeField] private float maxHealth = 100f;
     private float currentHealth;
@@ -12,6 +15,7 @@ public class Enemy : MonoBehaviour
     [SerializeField] private int goldReward = 10;
     [SerializeField] private GameObject deathEffect;
 
+    public static event Action<Enemy> OnEnemySpawned;
     public static event Action<Enemy> OnEnemyDied;
     public event Action<float, float> OnHealthChanged; // (currentHealth, maxHealth)
 
@@ -20,10 +24,21 @@ public class Enemy : MonoBehaviour
     public int GoldReward => goldReward;
     public bool IsDead => currentHealth <= 0;
 
+    private void Awake()
+    {
+        ActiveEnemies.Add(this);
+    }
+
     private void Start()
     {
         currentHealth = maxHealth;
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
+        OnEnemySpawned?.Invoke(this);
+    }
+
+    private void OnDestroy()
+    {
+        ActiveEnemies.Remove(this);
     }
 
     public void TakeDamage(float damage)

@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 2043613081917531117}
   - component: {fileID: -3949337152829036412}
   - component: {fileID: -6392846922030302479}
+  - component: {fileID: 3352254738622975874}
   m_Layer: 6
   m_Name: "Chef\xE3o"
   m_TagString: Enemy
@@ -123,12 +124,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAttack
   damage: 40
-  attackRange: 1.2
   attackRate: 1
-  obstacleLayer:
-    serializedVersion: 2
-    m_Bits: 256
-  guardTag: Guard
+  attackRange: 1
   barricadeTag: Barricade
 --- !u!60 &-3949337152829036412
 PolygonCollider2D:
@@ -197,8 +194,21 @@ MonoBehaviour:
   rotateTowardsTarget: 1
   rotationOffset: 0
   targetTower: {fileID: 0}
-  damageToTower: 5
-  obstacleCheckDistance: 0.5
-  obstacleLayer:
-    serializedVersion: 2
-    m_Bits: 256
+  stopDistanceToTower: 0.8
+--- !u!114 &3352254738622975874
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 214114850521652062}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fc68378800580784d95a5057f183397b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FloatingHealthBar
+  offset: {x: 0, y: 0.7, z: 0}
+  barSize: {x: 0.8, y: 0.12}
+  backgroundColor: {r: 0.15, g: 0.15, b: 0.15, a: 0.85}
+  fillColor: {r: 0.2, g: 0.9, b: 0.2, a: 1}
+  lowHealthColor: {r: 0.9, g: 0.2, b: 0.2, a: 1}

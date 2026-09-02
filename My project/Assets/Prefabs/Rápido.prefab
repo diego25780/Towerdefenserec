@@ -125,7 +125,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAttack
   damage: 10
   attackRate: 1
-  attackRange: 4
+  attackRange: 0.1
   barricadeTag: Barricade
 --- !u!61 &7519614052143362072
 BoxCollider2D:

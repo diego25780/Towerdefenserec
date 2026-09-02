@@ -15,13 +15,13 @@ public class EnemyMovement : MonoBehaviour
     [SerializeField] private float rotationOffset = 0f;
 
     [Header("Alvo Principal (Base / Torre)")]
-    [Tooltip("Se vazio, busca automaticamente a Base/Torre na cena.")]
     [SerializeField] private Transform targetTower;
     [SerializeField] private float stopDistanceToTower = 0.8f;
 
     private Transform[] waypoints;
     private int currentWaypointIndex = 0;
     private bool isBlockedByObstacle = false;
+    private Transform blockingObstacle = null;
     private bool hasReachedTower = false;
 
     public float Speed => speed;
@@ -61,8 +61,21 @@ public class EnemyMovement : MonoBehaviour
 
     private void Update()
     {
-        // Se estiver bloqueado por uma barricada ou já chegou na base/torre para bater
-        if (isBlockedByObstacle || hasReachedTower) return;
+        // Se o obstáculo que estava bloqueando foi destruído, desbloqueia o movimento imediatamente
+        if (isBlockedByObstacle)
+        {
+            if (blockingObstacle == null || !blockingObstacle.gameObject.activeInHierarchy)
+            {
+                isBlockedByObstacle = false;
+                blockingObstacle = null;
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        if (hasReachedTower) return;
 
         if (movementMode == MovementMode.FollowWaypoints && waypoints != null && waypoints.Length > 0)
         {
@@ -88,9 +101,10 @@ public class EnemyMovement : MonoBehaviour
         }
     }
 
-    public void SetBlocked(bool blocked)
+    public void SetBlocked(bool blocked, Transform obstacle = null)
     {
         isBlockedByObstacle = blocked;
+        blockingObstacle = obstacle;
     }
 
     private void FindTargetTower()
@@ -142,16 +156,16 @@ public class EnemyMovement : MonoBehaviour
 
     private void MoveTowards(Vector3 destination, System.Action onReach)
     {
-        Vector3 direction = (destination - transform.position).normalized;
-        transform.position += direction * speed * Time.deltaTime;
+        transform.position = Vector3.MoveTowards(transform.position, destination, speed * Time.deltaTime);
 
+        Vector3 direction = (destination - transform.position).normalized;
         if (rotateTowardsTarget && direction != Vector3.zero)
         {
             float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
             transform.rotation = Quaternion.Euler(0, 0, angle + rotationOffset);
         }
 
-        if (Vector2.Distance(transform.position, destination) <= 0.15f)
+        if (Vector2.Distance(transform.position, destination) <= 0.25f)
         {
             onReach?.Invoke();
         }

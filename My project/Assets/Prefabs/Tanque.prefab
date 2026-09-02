@@ -189,7 +189,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAttack
   damage: 15
   attackRate: 1
-  attackRange: 0.8
+  attackRange: 0.1
   barricadeTag: Barricade
 --- !u!114 &4205547912240855944
 MonoBehaviour:

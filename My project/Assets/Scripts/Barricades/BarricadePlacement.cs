@@ -1,6 +1,5 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.EventSystems;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -13,9 +12,20 @@ public class BarricadePlacement : MonoBehaviour
     [SerializeField] private GameObject barricadePrefab;
     [SerializeField] private int barricadeCost = 40;
 
+    [Header("Restrições de Posicionamento")]
+    [Tooltip("Largura máxima permitida da estrada para posicionar a barreira.")]
+    [SerializeField] private float maxDistanceFromPath = 1.0f;
+    [Tooltip("Distância mínima de outra barreira ou torre.")]
+    [SerializeField] private float minClearanceDistance = 0.9f;
+
+    [Header("Cores da Prévia")]
+    [SerializeField] private Color validColor = new Color(0.3f, 1f, 0.3f, 0.6f); // Verde
+    [SerializeField] private Color invalidColor = new Color(1f, 0.2f, 0.2f, 0.6f); // Vermelho
+
     private bool isPlacing = false;
     private bool canPlaceThisFrame = false;
     private GameObject previewObject;
+    private SpriteRenderer[] previewRenderers;
     private Camera mainCamera;
 
     public int BarricadeCost => barricadeCost;
@@ -46,18 +56,30 @@ public class BarricadePlacement : MonoBehaviour
             previewObject.transform.position = mouseWorldPos;
         }
 
+        // Verifica se a posição atual está dentro do caminho e livre
+        bool isValid = IsValidPlacementPosition(mouseWorldPos);
+        UpdatePreviewColor(isValid);
+
         // Aguarda 1 frame após clicar no botão da UI para não colocar a barricada em cima do botão
         if (!canPlaceThisFrame) return;
 
         // Clique esquerdo no mapa para posicionar a barreira
         if (IsLeftMouseButtonPressed())
         {
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+            // Ignora se estiver com o mouse sobre qualquer elemento da UI
+            if (UIHelper.IsPointerOverUI())
             {
                 return;
             }
 
-            PlaceBarricade(mouseWorldPos);
+            if (isValid)
+            {
+                PlaceBarricade(mouseWorldPos);
+            }
+            else
+            {
+                Debug.LogWarning("A barreira só pode ser posicionada em cima do caminho e longe de outras barreiras!");
+            }
         }
 
         // Clique direito ou ESC para cancelar
@@ -90,13 +112,9 @@ public class BarricadePlacement : MonoBehaviour
             Barricade barricadeScript = previewObject.GetComponent<Barricade>();
             if (barricadeScript != null) barricadeScript.enabled = false;
 
-            // Deixa a prévia semi-transparente
-            SpriteRenderer[] srs = previewObject.GetComponentsInChildren<SpriteRenderer>();
-            foreach (SpriteRenderer sr in srs)
+            previewRenderers = previewObject.GetComponentsInChildren<SpriteRenderer>();
+            foreach (SpriteRenderer sr in previewRenderers)
             {
-                Color c = sr.color;
-                c.a = 0.5f;
-                sr.color = c;
                 sr.sortingOrder = 100;
             }
         }
@@ -108,12 +126,92 @@ public class BarricadePlacement : MonoBehaviour
         canPlaceThisFrame = true;
     }
 
+    private bool IsValidPlacementPosition(Vector3 position)
+    {
+        // 1. Deve estar dentro do caminho dos inimigos
+        if (!IsPositionOnAnyPath(position))
+        {
+            return false;
+        }
+
+        // 2. Não pode estar em cima de outra barreira, torre ou spot de torre
+        Collider2D[] overlapping = Physics2D.OverlapCircleAll(position, minClearanceDistance);
+        foreach (Collider2D col in overlapping)
+        {
+            if (col.GetComponent<Barricade>() != null || 
+                col.GetComponent<Tower>() != null || 
+                col.GetComponent<TowerSpot>() != null ||
+                col.GetComponent<PlayerBase>() != null)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool IsPositionOnAnyPath(Vector3 position)
+    {
+        WaypointPath[] allPaths = FindObjectsOfType<WaypointPath>();
+        if (allPaths == null || allPaths.Length == 0) return true; // Se não houver caminhos configurados, permite
+
+        foreach (WaypointPath path in allPaths)
+        {
+            Transform[] waypoints = path.GetWaypoints();
+            if (waypoints == null || waypoints.Length < 2) continue;
+
+            for (int i = 0; i < waypoints.Length - 1; i++)
+            {
+                if (waypoints[i] == null || waypoints[i + 1] == null) continue;
+
+                float distanceToSegment = DistancePointToSegment(position, waypoints[i].position, waypoints[i + 1].position);
+                if (distanceToSegment <= maxDistanceFromPath)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private float DistancePointToSegment(Vector3 point, Vector3 segA, Vector3 segB)
+    {
+        Vector2 p = point;
+        Vector2 a = segA;
+        Vector2 b = segB;
+
+        Vector2 ab = b - a;
+        float abLengthSq = ab.sqrMagnitude;
+
+        if (abLengthSq <= 0.0001f)
+        {
+            return Vector2.Distance(p, a);
+        }
+
+        float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / abLengthSq);
+        Vector2 projection = a + t * ab;
+
+        return Vector2.Distance(p, projection);
+    }
+
+    private void UpdatePreviewColor(bool isValid)
+    {
+        if (previewRenderers == null) return;
+
+        Color targetColor = isValid ? validColor : invalidColor;
+        foreach (SpriteRenderer sr in previewRenderers)
+        {
+            if (sr != null) sr.color = targetColor;
+        }
+    }
+
     private void PlaceBarricade(Vector3 position)
     {
         if (CoinManager.Instance != null && CoinManager.Instance.SpendCoins(barricadeCost))
         {
             Instantiate(barricadePrefab, position, Quaternion.identity);
-            Debug.Log($"Barreira posicionada com sucesso na posição {position} por {barricadeCost} moedas!");
+            Debug.Log($"Barreira posicionada no caminho por {barricadeCost} moedas!");
             CancelPlacement();
         }
         else

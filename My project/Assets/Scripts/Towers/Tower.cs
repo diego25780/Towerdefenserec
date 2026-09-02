@@ -1,6 +1,5 @@
 using System;
 using UnityEngine;
-using UnityEngine.EventSystems;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -16,7 +15,7 @@ public class Tower : MonoBehaviour
     public static Tower SelectedTower { get; private set; }
 
     [Header("Identificação")]
-    [SerializeField] private string towerName = "Torre de Flechas";
+    [SerializeField] private string towerName = "Canhão Padrão";
 
     [Header("Atributos da Torre")]
     [SerializeField] private float baseRange = 4.5f;
@@ -24,15 +23,21 @@ public class Tower : MonoBehaviour
     [SerializeField] private float baseDamage = 20f;
     [SerializeField] private TargetPriority priority = TargetPriority.Nearest;
 
-    [Header("Evolução de Dano")]
+    [Header("Evolução de Dano (Limite de Níveis)")]
     [SerializeField] private int baseDamageCost = 30;
     [SerializeField] private float damageCostMultiplier = 1.4f;
     [SerializeField] private float damageBonusPerLevel = 10f;
+    [SerializeField] private int maxDamageLevel = 4;
 
-    [Header("Evolução de Alcance")]
+    [Header("Evolução de Alcance (Limite de Níveis)")]
     [SerializeField] private int baseRangeCost = 25;
     [SerializeField] private float rangeCostMultiplier = 1.4f;
     [SerializeField] private float rangeBonusPerLevel = 0.8f;
+    [SerializeField] private int maxRangeLevel = 4;
+
+    [Header("Economia e Venda")]
+    [SerializeField] private int initialBuildCost = 70;
+    [SerializeField] private float sellRefundPercent = 0.7f; // Devolve 70% do valor total investido
 
     [Header("Configurações de Tiro")]
     [SerializeField] private GameObject projectilePrefab;
@@ -48,7 +53,9 @@ public class Tower : MonoBehaviour
     private int rangeLevel = 1;
     private float currentDamage;
     private float currentRange;
+    private int totalInvested;
 
+    private TowerSpot parentSpot;
     private Transform currentTarget;
     private float fireCountdown = 0f;
     private Camera mainCam;
@@ -59,17 +66,25 @@ public class Tower : MonoBehaviour
     public float FireRate => fireRate;
     public int DamageLevel => damageLevel;
     public int RangeLevel => rangeLevel;
+    public int MaxDamageLevel => maxDamageLevel;
+    public int MaxRangeLevel => maxRangeLevel;
+
+    public bool CanUpgradeDamage => damageLevel < maxDamageLevel;
+    public bool CanUpgradeRange => rangeLevel < maxRangeLevel;
 
     public int CurrentDamageUpgradeCost => Mathf.RoundToInt(baseDamageCost * Mathf.Pow(damageCostMultiplier, damageLevel - 1));
     public int CurrentRangeUpgradeCost => Mathf.RoundToInt(baseRangeCost * Mathf.Pow(rangeCostMultiplier, rangeLevel - 1));
+    public int SellValue => Mathf.Max(10, Mathf.RoundToInt(totalInvested * sellRefundPercent));
 
     public static event Action<Tower> OnTowerSelected;
+    public static event Action OnTowerDeselected;
     public event Action OnTowerUpgraded;
 
     private void Awake()
     {
         currentDamage = baseDamage;
         currentRange = baseRange;
+        totalInvested = initialBuildCost;
         SelectedTower = this;
         mainCam = Camera.main;
 
@@ -94,17 +109,17 @@ public class Tower : MonoBehaviour
         OnTowerSelected?.Invoke(this);
     }
 
-    private void OnMouseDown()
+    public void SetParentSpot(TowerSpot spot, int costPaid)
     {
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
-        SelectTower();
+        parentSpot = spot;
+        totalInvested = costPaid;
     }
 
     public void SelectTower()
     {
         SelectedTower = this;
         OnTowerSelected?.Invoke(this);
-        Debug.Log($"Torre selecionada: {towerName} (Dano Nv {damageLevel}, Alcance Nv {rangeLevel})");
+        Debug.Log($"Torre selecionada: {towerName} (Dano Nv {damageLevel}/{maxDamageLevel}, Alcance Nv {rangeLevel}/{maxRangeLevel})");
     }
 
     private void Update()
@@ -112,7 +127,7 @@ public class Tower : MonoBehaviour
         // Detecção de clique no New Input System
         if (IsLeftMouseClicked())
         {
-            if (EventSystem.current == null || !EventSystem.current.IsPointerOverGameObject())
+            if (!UIHelper.IsPointerOverUI())
             {
                 Vector3 mousePos = GetMouseWorldPos();
                 Collider2D col = GetComponent<Collider2D>();
@@ -158,40 +173,22 @@ public class Tower : MonoBehaviour
             if (enemy == null && !col.CompareTag(enemyTag)) continue;
             if (enemy != null && enemy.IsDead) continue;
 
-            float distance = Vector2.Distance(transform.position, col.transform.position);
+            float distanceToEnemy = Vector2.Distance(transform.position, col.transform.position);
 
             if (priority == TargetPriority.Nearest)
             {
-                if (distance < shortestDistance)
+                if (distanceToEnemy < shortestDistance)
                 {
-                    shortestDistance = distance;
+                    shortestDistance = distanceToEnemy;
                     chosenEnemy = col.transform;
                 }
             }
-            else if (priority == TargetPriority.LowestHealth)
+            else if (priority == TargetPriority.LowestHealth && enemy != null)
             {
-                float health = enemy != null ? enemy.CurrentHealth : 100f;
-                if (health < lowestHealth)
+                if (enemy.CurrentHealth < lowestHealth)
                 {
-                    lowestHealth = health;
+                    lowestHealth = enemy.CurrentHealth;
                     chosenEnemy = col.transform;
-                }
-            }
-        }
-
-        if (chosenEnemy == null)
-        {
-            Enemy[] allEnemies = FindObjectsOfType<Enemy>();
-            foreach (Enemy enemy in allEnemies)
-            {
-                if (enemy != null && !enemy.IsDead)
-                {
-                    float distance = Vector2.Distance(transform.position, enemy.transform.position);
-                    if (distance <= currentRange && distance < shortestDistance)
-                    {
-                        shortestDistance = distance;
-                        chosenEnemy = enemy.transform;
-                    }
                 }
             }
         }
@@ -208,10 +205,10 @@ public class Tower : MonoBehaviour
 
     private void Shoot()
     {
-        if (projectilePrefab == null || firePoint == null) return;
+        if (projectilePrefab == null) return;
 
-        GameObject projectileObj = Instantiate(projectilePrefab, firePoint.position, firePoint.rotation);
-        Projectile projectile = projectileObj.GetComponent<Projectile>();
+        GameObject projGO = Instantiate(projectilePrefab, firePoint.position, firePoint.rotation);
+        Projectile projectile = projGO.GetComponent<Projectile>();
 
         if (projectile != null)
         {
@@ -221,36 +218,71 @@ public class Tower : MonoBehaviour
 
     public bool UpgradeDamage()
     {
-        int cost = CurrentDamageUpgradeCost;
+        if (!CanUpgradeDamage)
+        {
+            Debug.LogWarning("Dano da torre já atingiu o nível máximo!");
+            return false;
+        }
 
+        int cost = CurrentDamageUpgradeCost;
         if (CoinManager.Instance != null && CoinManager.Instance.SpendCoins(cost))
         {
             damageLevel++;
-            currentDamage = baseDamage + (damageLevel - 1) * damageBonusPerLevel;
+            currentDamage += damageBonusPerLevel;
+            totalInvested += cost;
             OnTowerUpgraded?.Invoke();
-            Debug.Log($"{towerName} evoluiu para Dano Nível {damageLevel}! (Dano atual: {currentDamage})");
+            Debug.Log($"Dano da torre evoluído para Nv {damageLevel}! Dano atual: {currentDamage}");
             return true;
         }
 
-        Debug.LogWarning("Moedas insuficientes para evoluir o dano da torre!");
+        Debug.LogWarning("Moedas insuficientes para evoluir o dano.");
         return false;
     }
 
     public bool UpgradeRange()
     {
-        int cost = CurrentRangeUpgradeCost;
+        if (!CanUpgradeRange)
+        {
+            Debug.LogWarning("Alcance da torre já atingiu o nível máximo!");
+            return false;
+        }
 
+        int cost = CurrentRangeUpgradeCost;
         if (CoinManager.Instance != null && CoinManager.Instance.SpendCoins(cost))
         {
             rangeLevel++;
-            currentRange = baseRange + (rangeLevel - 1) * rangeBonusPerLevel;
+            currentRange += rangeBonusPerLevel;
+            totalInvested += cost;
             OnTowerUpgraded?.Invoke();
-            Debug.Log($"{towerName} evoluiu para Alcance Nível {rangeLevel}! (Alcance atual: {currentRange})");
+            Debug.Log($"Alcance da torre evoluído para Nv {rangeLevel}! Alcance atual: {currentRange}");
             return true;
         }
 
-        Debug.LogWarning("Moedas insuficientes para evoluir o alcance da torre!");
+        Debug.LogWarning("Moedas insuficientes para evoluir o alcance.");
         return false;
+    }
+
+    public void SellTower()
+    {
+        int refund = SellValue;
+        if (CoinManager.Instance != null)
+        {
+            CoinManager.Instance.AddCoins(refund);
+        }
+
+        if (parentSpot != null)
+        {
+            parentSpot.OnTowerSold();
+        }
+
+        if (SelectedTower == this)
+        {
+            SelectedTower = null;
+            OnTowerDeselected?.Invoke();
+        }
+
+        Debug.Log($"Torre '{towerName}' vendida por {refund}$!");
+        Destroy(gameObject);
     }
 
     private bool IsLeftMouseClicked()
@@ -287,7 +319,6 @@ public class Tower : MonoBehaviour
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.cyan;
-        float displayRange = currentRange > 0 ? currentRange : baseRange;
-        Gizmos.DrawWireSphere(transform.position, displayRange);
+        Gizmos.DrawWireSphere(transform.position, currentRange > 0 ? currentRange : baseRange);
     }
 }

@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -38,10 +37,10 @@ public class TowerSpot : MonoBehaviour
 
     private void Update()
     {
-        // Detecção com New Input System para cliques
         if (IsLeftMouseClicked())
         {
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+            // Se o mouse estiver em cima de qualquer botão da UI, ignora totalmente o clique no mundo
+            if (UIHelper.IsPointerOverUI()) return;
 
             Vector3 mousePos = GetMouseWorldPos();
             Collider2D col = GetComponent<Collider2D>();
@@ -54,7 +53,7 @@ public class TowerSpot : MonoBehaviour
 
     private void OnMouseEnter()
     {
-        if (!IsOccupied && spotRenderer != null)
+        if (!IsOccupied && spotRenderer != null && !UIHelper.IsPointerOverUI())
         {
             spotRenderer.color = hoverColor;
         }
@@ -66,12 +65,6 @@ public class TowerSpot : MonoBehaviour
         {
             spotRenderer.color = originalColor;
         }
-    }
-
-    private void OnMouseDown()
-    {
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
-        HandleClick();
     }
 
     private void HandleClick()
@@ -134,6 +127,7 @@ public class TowerSpot : MonoBehaviour
             Tower tower = builtTower.GetComponent<Tower>();
             if (tower != null)
             {
+                tower.SetParentSpot(this, cost);
                 tower.SelectTower();
             }
 
@@ -143,6 +137,16 @@ public class TowerSpot : MonoBehaviour
 
         Debug.LogWarning($"Moedas insuficientes para construir a torre! Custo: {cost}");
         return false;
+    }
+
+    public void OnTowerSold()
+    {
+        builtTower = null;
+        if (spotRenderer != null)
+        {
+            spotRenderer.color = originalColor;
+        }
+        Debug.Log("Spot de torre liberado para nova construção!");
     }
 
     private bool IsLeftMouseClicked()
