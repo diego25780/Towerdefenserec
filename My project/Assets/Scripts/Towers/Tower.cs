@@ -211,17 +211,22 @@ public class Tower : MonoBehaviour
     }
 
     private void Shoot()
+{
+    if (projectilePrefab == null) return;
+
+    // ✅ ADICIONE ISTO:
+    TowerAnimator towerAnim = GetComponent<TowerAnimator>();
+    if (towerAnim != null)
+        towerAnim.PlayShootAnimation();
+
+    GameObject projGO = Instantiate(projectilePrefab, firePoint.position, firePoint.rotation);
+    Projectile projectile = projGO.GetComponent<Projectile>();
+
+    if (projectile != null)
     {
-        if (projectilePrefab == null) return;
-
-        GameObject projGO = Instantiate(projectilePrefab, firePoint.position, firePoint.rotation);
-        Projectile projectile = projGO.GetComponent<Projectile>();
-
-        if (projectile != null)
-        {
-            projectile.Seek(currentTarget, currentDamage);
-        }
+        projectile.Seek(currentTarget, currentDamage);
     }
+}
 
     public bool UpgradeDamage()
     {
